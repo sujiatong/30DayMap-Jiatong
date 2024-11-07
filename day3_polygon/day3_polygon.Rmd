@@ -1,0 +1,51 @@
+---
+title: "day_3_polygon"
+output: html_document
+date: "2024-11-05"
+---
+
+```{r setup, include=FALSE}
+library(ggplot2)
+library(sf)
+setwd("/Users/jiatong/Desktop/30daysMap/day3_polygon")
+PA <- st_read("https://github.com/Weitzman-MUSA-JavaScript/course-info/blob/a45b5ad426b3736883da08e195ad27184cf176a0/week03/practice_files/pa_pres_results.geojson?raw=true")
+```
+
+```{r}
+polygon <- ggplot() +
+  geom_sf(data = PA, aes(fill = candidate), linewidth = 0.2, alpha = 0.9, color = "white") +
+  theme_void() +
+  
+  # Set custom colors for each candidate
+  scale_fill_manual(
+    values = c(
+      "JOSEPH R BIDEN JR" = "#228ecd",     # Replace "Biden" with the name used in your data
+      "DONALD J TRUMP" = "#d62a37"        # Replace "Trump" with the name used in your data
+    ),
+    name = "Candidate"        # Optional: Set the legend title
+  ) +
+  
+  # Add titles and caption
+  labs(
+    title = "2020 US Presidential Election",
+    subtitle = "County-level election results in Pennsylvania",
+    caption = "Data: MIT Election Data + Science Lab | Creation: Jiatong Su"
+  ) +
+  
+  # Customize text elements
+  theme(
+    text = element_text(color = "#22211d"),
+    plot.background = element_rect(fill = "#f5f5f2", color = NA),
+    panel.background = element_rect(fill = "#f5f5f2", color = NA),
+    legend.background = element_rect(fill = "#f5f5f2", color = NA),
+    plot.title = element_text(size = 20, hjust = 0.01, color = "#4e4d47"),
+    plot.caption = element_text(hjust = 0))
+
+polygon
+```
+
+```{r}
+ggsave("day_3.png", plot = polygon)
+
+```
+
