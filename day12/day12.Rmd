@@ -1,0 +1,249 @@
+---
+title: "Time and Space"
+output: html_document
+date: "2024-11-18"
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+# data source from: 
+
+<https://dataverse.harvard.edu/file.xhtml?persistentId=doi:10.7910/DVN/HIMIVE/I6EPRJ&version=2.0> <https://yugong.fudan.edu.cn/CHGIS/sjxz.htm>
+
+```{r setup, warning=FALSE, message=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(raster)
+library(sf)
+library(ggplot2)
+library(ggspatial)
+library(rnaturalearth)
+library(rnaturalearthdata)
+library(showtext)
+library(dplyr)             # Load the package
+
+
+qing <- st_read("/Users/jiatong/Desktop/day12/v2_1820_prov_pgn_utf/v2_1820_prov_pgn_utf.shp", options = "ENCODING=UTF-8")
+
+qing_1911 <- st_read("/Users/jiatong/Desktop/day12/v6_1911_prov_pgn_utf/v6_1911_prov_pgn_utf.shp", options = "ENCODING=UTF-8") %>% st_transform(4326)
+
+```
+
+# Data Wrangling
+
+```{r}
+
+# modify Official_English_Name 
+province_qing_1911 <- data.frame(
+  NAME_CH = c("江苏", "湖北", "陕西", "安徽", "福建", "湖南", "广东", "广西", 
+               "浙江", "江西", "山西", "河南", "山东", "台湾(日本占领)", "甘肃", 
+               "云南", "贵州", "直隶", "黑龙江", "吉林", "青海", "内蒙古", 
+               "奉天", "乌里雅苏台", "四川", "新疆", "西藏"),
+  Official_English_Name = c("Jiangsu", "Hubei", "Shaanxi", "Anhui", "Fujian", 
+                            "Hunan", "Guangdong", "Guangxi", "Zhejiang", 
+                            "Jiangxi", "Shanxi", "Henan", "Shandong", 
+                            "Taiwan\n(Occupied by Japan)", "Gansu", "Yunnan", 
+                            "Guizhou", "Zhili\n(Directly Ruled Region)", 
+                            "Heilongjiang", "Jilin", "Qinghai", 
+                            "Inner Mongolia", "Fengtian\n(later Liaoning)", 
+                            "Uliastai", "Sichuan", "Xinjiang", "Tibet")
+
+)
+
+# 将官方英文名称添加到 `qing_map`
+qing_1911 <- qing_1911 %>%
+  left_join(province_qing_1911, by = "NAME_CH")  # 根据 `NAME_CH` 列匹配英文名
+
+qing <- qing %>%
+    mutate(NAME_PY = as.character(NAME_PY))
+
+# filtering non- necessary data
+qing_filter <- qing %>%
+    filter(!NAME_PY %in% c("Wanlichangsha", "Qianlishitang", "Zengmu'ansha", "Dongsha", "Zhongsha")) %>% st_transform(4326)
+
+qing_1911 <- qing_1911 %>%
+    filter(!NAME_CH %in% c("台湾(日本占领)")) %>% st_transform(4326)
+```
+
+```{r}
+
+china_provinces <- c("西藏" = "Tibet", 
+                     "中俄尼布楚条约待议地区" = "Nerchinsk Treaty", 
+                     "新疆" = "Xinjiang", 
+                     "盛京" = "Shengjing", 
+                     "云南" = "Yunnan", 
+                     "黑龙江" = "Heilongjiang", 
+                     "吉林" = "Jilin", 
+                     "乌里雅苏台" = "Uliyasutai", 
+                     "青海" = "Qinghai", 
+                     "陕西" = "Shaanxi", 
+                     "安徽" = "Anhui", 
+                     "湖北" = "Hubei", 
+                     "湖南" = "Hunan", 
+                     "广东" = "Guangdong", 
+                     "福建" = "Fujian", 
+                     "浙江" = "Zhejiang", 
+                     "直隶" = "Zhili", 
+                     "河南" = "Henan", 
+                     "内蒙古" = "Inner Mongolia", 
+                     "山西" = "Shanxi", 
+                     "甘肃" = "Gansu", 
+                     "四川" = "Sichuan", 
+                     "贵州" = "Guizhou", 
+                     "江西" = "Jiangxi", 
+                     "广西" = "Guangxi", 
+                     "山东" = "Shandong", 
+                     "江苏" = "Jiangsu")
+
+# using mutate() add new column
+qing_filter <- qing_filter %>%
+  mutate(English_Name = china_provinces[NAME_CH])
+
+
+```
+
+```{r, include=FALSE}
+library(dplyr)
+library(stringi)
+
+# 假設這是原始資料
+qing_data <- data.frame(
+  Region = c("西藏", "中俄尼部署條約待議地區", "新疆", "盛京", "雲南", 
+             "黑龍江", "吉林", "烏里雅蘇台", "青海", "陝西", "安徽", 
+             "湖北", "湖南", "廣東", "福建", "浙江", "直隸", "河南", 
+             "内蒙古", "山西", "甘肅", "四川", "貴州", "江西", "廣西", 
+             "山東", "江蘇")
+)
+
+# 新增一個以自右向左排列文字的欄位
+qing_data <- qing_filter %>%
+  mutate(Region_RTL = sapply(NAME_FT, function(x) {
+    # 將每個中文字拆分為單個字符，反轉順序，然後重新組合
+    paste(rev(strsplit(x, split = "")[[1]]), collapse = "")
+  }))
+
+qing_data <- qing_data %>%
+  mutate(
+    Region_RTL = ifelse(Region_RTL == "區地議待約條署部尼俄中", "區地議待約條署部尼", Region_RTL)
+  )
+
+```
+
+# Load modern China border
+
+```{r}
+library(rnaturalearth)
+
+# Load modern China border
+china_modern <- ne_countries(scale = "medium", country = "China", returnclass = "sf")
+
+# Transform CRS to match the Qing maps
+china_modern <- st_transform(china_modern, st_crs(qing_filter))
+
+```
+
+# output map
+
+```{r,warning=FALSE}
+final <- 
+ggplot() +
+  geom_sf(data = qing_filter, aes(fill = "1820 (25th year of the Jiaqing)"), color = NA, alpha = 0.8, size = 0.2) +
+  geom_sf(data = qing_1911, aes(fill = "1911 (3rd year of the Xuantong)"), color = NA, alpha = 0.5, size = 0.2) +
+  # Modern China Border with dashed line and legend
+  geom_sf(data = china_modern, aes(linetype = "China Mainland (1949 - Present)"), fill = NA, color = "grey30", size = 0.6) +
+  
+  geom_sf_text(data = qing_1911, aes(label = Official_English_Name), size = 1.8, color = "#5e5148",  nudge_y = -0.2) +
+
+  scale_fill_manual(
+    values = c("1820 (25th year of the Jiaqing)" = "#d8c295", "1911 (3rd year of the Xuantong)" = "#7d5a50"),
+    name = "Time Period"
+  ) +
+  
+  scale_linetype_manual(
+    values = c("China Mainland (1949 - Present)" = "dashed"),
+    name = "Border"
+  ) +
+  
+  theme_void() +
+  
+  labs(
+    title = "Territorial Changes of the Qing Dynasty",
+    subtitle = "1820 (25th year of the Jiaqing) vs 1911 (3rd year of the Xuantong)",
+    caption = "30 day map challenge | Day12 - Time & Space\nAuthor: Jiatong Su\nData Source: China Historical Geographic Information System, CHGIS"
+
+  ) +
+  
+  theme(
+    plot.title = element_text(family = "serif", size = 20, face = "bold", hjust = 0.5, color = "#5e5148"),
+    plot.subtitle = element_text(family = "serif", size = 14, hjust = 0.5, color = "#5e5148"),
+    legend.position = c(0.95,0.15),
+    legend.title = element_text(family = "serif", size = 10, color = "#5e5148"),
+    legend.text = element_text(family = "serif", size = 8, color = "#5e5148"),
+    plot.background = element_rect(fill = "#f5f5dc", color = NA),
+    panel.background = element_rect(fill = "#f5f5dc", color = NA),
+    plot.caption = element_text(hjust = 0, size = 6, color = "#5e5148", family = "serif"),
+    plot.margin = margin(10, 55, 10, 25)  # Increase margins around the plot (top, right, bottom, left)
+  )
+
+final
+```
+
+# other
+```{r}
+ggsave("day12_time_space.png", plot = final)
+```
+
+```{r, include=FALSE}
+
+library(ggplot2)
+library(grid)
+
+font_add("Chinese", "/Library/Fonts/Microsoft/Kaiti.ttf")
+showtext_auto()
+
+# 設定圖形
+ggplot(data = qing_data) +
+  geom_sf(fill = "orange", color = "#5e5148", size = 0.2) +
+# geom_sf_text( aes(label = Region_RTL), size = 2, color = "#5e5148", family = "Chinese") + # 添加标签
+# geom_sf_text( aes(label = English_Name), size = 2, color = "#5e5148", family = "Cinzel") + # 添加标签
+geom_sf_text(aes(label = Region_RTL), size = 2.5, color = "#5e5148", family = "Chinese", nudge_y = 0.5) + 
+geom_sf_text(aes(label = English_Name), size = 2, color = "#5e5148",  nudge_y = -0.5) +
+  theme_minimal() +
+  #labs(title = "大清彊域圖") +
+  theme_void() + 
+  theme(
+    panel.background = element_rect(fill = "#f5f5dc", color = NA),
+    plot.background = element_rect(fill = "#f5f5dc", color = NA),
+    plot.title = element_text(family = "Chinese", face = "bold", size = 20, color = "#5e5148"),
+    plot.subtitle = element_text(family = "Chinese", size = 14, color = "#5e5148")
+  ) 
+#+
+  #labs( title = "國帝清大",subtitle = "年五十二慶嘉")
+
+
+
+# 绘制标题，使用楷体（确保系统安装了 Kaiti 字体）
+grid.text("大", x = 0.9, y = 0.6, gp = gpar(fontsize = 25, family = "Chinese"))
+grid.text("清", x = 0.9, y = 0.5, gp = gpar(fontsize = 25, family = "Chinese"))
+grid.text("彊", x = 0.9, y = 0.4, gp = gpar(fontsize = 25, family = "Chinese"))
+grid.text("域", x = 0.9, y = 0.3, gp = gpar(fontsize = 25, family = "Chinese"))
+grid.text("圖", x = 0.9, y = 0.2, gp = gpar(fontsize = 25, family = "Chinese"))
+
+# 添加 "嘉慶二十五年" 的垂直排列
+grid.text("嘉", x = 0.85, y = 0.6, gp = gpar(fontsize = 15, family = "Chinese"))
+grid.text("慶", x = 0.85, y = 0.55, gp = gpar(fontsize = 15, family = "Chinese"))
+grid.text("二", x = 0.85, y = 0.5, gp = gpar(fontsize = 15, family = "Chinese"))
+grid.text("十", x = 0.85, y = 0.45, gp = gpar(fontsize = 15, family = "Chinese"))
+grid.text("五", x = 0.85, y = 0.4, gp = gpar(fontsize = 15, family = "Chinese"))
+grid.text("年", x = 0.85, y = 0.35, gp = gpar(fontsize = 15, family = "Chinese"))
+
+```
+
+```{r, include=FALSE}
+custom_colors <- c(
+  "#A68D3F", "#5F4B3F", "#D19C7D", "#F0CFA2", "#F3E2B3", "#D7C39C", "#B89C68", "#A57B3B",
+  "#B3A37A", "#C0B283", "#9A7C4E", "#D0A752", "#D8A54A", "#C98935", "#9A7637", "#F0C972", 
+  "#C18C32", "#BFB256", "#A16F4D", "#E5C88D", "#F4C88C", "#9F8B47", "#A88D72", "#BB9B58", 
+  "#8E7D57", "#9F8A58", "#A9845D", "#C5A455"
+)
+```
