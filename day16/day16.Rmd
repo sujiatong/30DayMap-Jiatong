@@ -1,5 +1,5 @@
 ---
-title: "Day12 Choropleth"
+title: "Day16 Choropleth"
 author: Jiatong Su
 output:
   html_document:
