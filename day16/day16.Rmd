@@ -1,0 +1,141 @@
+---
+title: "Day12 Choropleth"
+author: Jiatong Su
+output:
+  html_document:
+    theme: simplex
+    toc: yes
+    toc_float: yes
+    progress: hide
+    code_download: yes
+---
+
+```{r setup, message=FALSE, warning=FALSE}
+#  load dependencies
+library(biscale)
+library(tidycensus)
+library(ggplot2)
+library(cowplot)
+library(rgeoboundaries)
+library(glue)
+library(ggtext)
+library(dplyr)
+library(showtext)
+library(sf)
+
+NJ_county <- 
+  get_acs(geography = "county", 
+          variables = c("B01003_001", "B19013_001", 
+                        "B02001_002", "B08013_001",
+                        "B08012_001", "B08301_001", 
+                        "B08301_010", "B01002_001"), 
+          year = 2022, 
+          state = "NJ", 
+          geometry = TRUE, 
+          output = "wide") %>%
+  rename(Total_Pop =  B01003_001E,
+         Med_Inc = B19013_001E,
+         Med_Age = B01002_001E,
+         White_Pop = B02001_002E,
+         Travel_Time = B08013_001E,
+         Num_Commuters = B08012_001E,
+         Means_of_Transport = B08301_001E,
+         Total_Public_Trans = B08301_010E) %>%
+  select(Total_Pop, Med_Inc, White_Pop, Travel_Time,
+         Means_of_Transport, Total_Public_Trans,
+         Med_Age,
+         GEOID, geometry) %>%
+  mutate(Percent_White = White_Pop / Total_Pop,
+         Mean_Commute_Time = Travel_Time / Total_Public_Trans,
+         Percent_Taking_Public_Trans = Total_Public_Trans / Means_of_Transport) %>% 
+  st_transform(crs = 4326)
+
+usa <- geoboundaries(country = "United States", adm_lvl = "adm1") %>% 
+  st_transform(crs = 4326)
+
+
+
+```
+
+```{r, warning=FALSE}
+data <- bi_class(NJ_county, x = Percent_White, y = Med_Inc, dim = 3, style = "quantile", keep_factors = TRUE)
+
+monmouth_coords <- c(-74.2, 40.3)  # You can adjust this based on Monmouth County's centroid coordinates
+
+cape_may <- c(-74.9, 38.94)
+
+sussex <-  c(-74.7051, 41.705)
+```
+
+
+```{r, warning=FALSE}
+# draw legend with adjusted font size
+legend <- bi_legend(pal = "DkBlue",
+                    xlab = "Higher % White",
+                    ylab = "Higher Income",
+                    size = 6)
+```
+
+
+```{r, warning=FALSE}
+# draw map
+map <- ggplot() +
+    geom_sf(data = usa, fill="lightgrey", color = "white", lwd = 0.9) +
+
+  geom_sf(data = data, aes(fill = bi_class), color = "white", size = 0.1, show.legend = FALSE) +
+ coord_sf(xlim = c(-78, -71), 
+         ylim = c(38, 42),         
+         expand = FALSE           # Ensure the frame does not auto-expand
+) +
+  bi_scale_fill(pal = "DkBlue", dim = 3) +
+  
+  # Add annotation text for Monmouth County
+    annotate("text", x = sussex[1] - 1.3, y = sussex[2]-0.3, label = "Higher Income\nHigher % White", 
+             color = "#00008B", size = 3.5, hjust = 0.5, vjust = 1) +
+  
+  # Add a line segment pointing to the annotation
+    geom_segment(aes(x = sussex[1] - 0.7  , y = sussex[2] - 0.5 , 
+                     xend = sussex[1] , 
+                     yend = sussex[2] - 0.5 ), 
+                 color = "#00008B", size = 0.8, 
+                 arrow = arrow(type = "closed", length = unit(0.1, "inches"))) +
+  
+  # Add annotation text for Monmouth County
+    annotate("text", x = cape_may[1]+ 1.2, y = cape_may[2] + 0.2 , label = "Lower Income\nHigher % White", 
+             color = "#008B8B", size = 3.5, hjust = 0.5, vjust = 1) +
+  
+  # Add a line segment pointing to the annotation
+    geom_segment(aes(x = cape_may[1] + 0.65, y = cape_may[2]  , 
+                     xend = cape_may[1] , 
+                     yend = cape_may[2] + 0.1 ), 
+                 color = "#008B8B", size = 0.8, 
+                 arrow = arrow(type = "closed", length = unit(0.1, "inches"))) +
+  
+  labs(
+    title = "<span style='color:#A25F99;'>**Income**</span> and <span style='color:#008B8B;'>Percentage of White Population </span> in 2022",
+    subtitle = "By County in New Jersey, Based on Census Tract Data",
+    caption = "30 day map challenge | Day 16 - Choropleth\nAuthor: Jiatong Su\nData Source:  Census tract data\n@weitzman_musa"
+  ) +
+  bi_theme() +
+    theme(
+  plot.title = element_markdown(size = 15, color = "#4e4d47", margin=margin(0,0,0,1)),
+  plot.subtitle = element_text(size = 10, margin = margin(5,0,0,1), face="bold"),
+    plot.caption = element_text(hjust = 0, size = 5, face="bold"),
+     axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        axis.title = element_blank())
+
+
+
+finalPlot <- ggdraw() +
+  draw_plot(map, 0, 0, 1, 1) +
+  draw_plot(legend, 0.62, 0, 0.25, 0.25)
+
+finalPlot
+```
+
+```{r}
+ggsave("jiatong_day16.png", plot = finalPlot, width = 8, height = 6, dpi = 300)
+
+```
+
