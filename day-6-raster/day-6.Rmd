@@ -1,0 +1,125 @@
+---
+title: "Normalized Difference Vegetation Index (NDVI) in Philadelphia"
+output: html_document
+date: "2024-11-28"
+---
+
+```{r setup, include=FALSE}
+
+library(rgeoboundaries)
+library(ggplot2)
+
+
+setwd("/Users/jiatong/Desktop/LC08_L2SP_014032_20241021_20241029_02_T1")
+library(raster) #load necessary libraries
+
+
+philly <- shapefile("philadelphia-neighborhoods/philadelphia-neighborhoods.shp")
+```
+
+```{r}
+# Extract geographic data for Philadelphia
+Philly_1 <- geoboundaries("United States", adm_lvl = "adm2") %>%
+  filter(shapeName == "Philadelphia")
+
+dl <- geoboundaries("United States", adm_lvl = "adm1") %>%
+  filter(shapeName == "Delaware")
+
+# Plot the Philadelphia boundary
+ggplot(data = dl) +
+  geom_sf(fill = "lightblue", color = "black") +  # Set fill and boundary colors
+  labs(
+    title = "Philadelphia Boundary",
+    subtitle = "Geoboundaries Data for Philadelphia, United States",
+    x = "Longitude",
+    y = "Latitude"
+  ) +
+  theme_minimal()
+```
+
+
+```{r}
+landsat_20241021 <- stack(
+                          "LC08_L2SP_014032_20241021_20241029_02_T1_SR_B2.TIF",
+                          "LC08_L2SP_014032_20241021_20241029_02_T1_SR_B3.TIF",
+                          "LC08_L2SP_014032_20241021_20241029_02_T1_SR_B4.TIF",
+                          "LC08_L2SP_014032_20241021_20241029_02_T1_SR_B5.TIF",
+                          "LC08_L2SP_014032_20241021_20241029_02_T1_SR_B6.TIF",
+                          "LC08_L2SP_014032_20241021_20241029_02_T1_SR_B7.TIF")
+```
+
+
+```{r}
+philly_utm <- st_transform(Philly_1, crs(landsat_20241021)@projargs)
+
+plotRGB(landsat_20241021, r = 3, g = 2, b = 1, stretch = "lin")
+plot(philly_utm, col = NA, border = "red", lwd = 2, add = TRUE)
+
+```
+
+```{r}
+names(landsat_20241021) <- c("blue", "green", "red", "NIR", "SWIR1", "SWIR2")
+
+
+landsat_20241021_cropped <- crop(landsat_20241021, extent(philly_utm))
+
+plotRGB(landsat_20241021_cropped, r = 3, g = 2, b = 1, stretch = "lin")
+
+plot(philly_utm, col = NA, border = "red", lwd = 2, add = TRUE)
+
+```
+
+
+#ndvi function
+
+```{r}
+NDVI <- function(red, NIR){
+  value <- (NIR - red)/(NIR + red)
+  return(value)
+}
+
+ndvi_landsat_20241021 <- NDVI(landsat_20241021_cropped$red, landsat_20241021_cropped$NIR)
+
+plot(ndvi_landsat_20241021)
+plot(philly_utm, col = NA, border = "red", lwd = 2, add = TRUE)
+
+
+```
+```{r}
+mask_ndvi_philly <- mask(ndvi_landsat_20241021, philly_utm)
+plot(mask_ndvi_philly)
+```
+
+
+```{r}
+# Assuming necessary libraries are loaded
+# ndvi_landsat_20241021 is a raster object
+# philly_utm is an sf object (Philadelphia boundary)
+
+final <- 
+# Plot the NDVI raster
+plot(mask_ndvi_philly,
+     main = "Normalized Difference Vegetation Index (NDVI) in Philadelphia",
+     legend.args = list(text = "NDVI", side = 4, font = 2, line = 2.5, cex = 0.8),
+      axes = FALSE,  # 移除经纬度轴
+      box = FALSE) +
+
+
+# 添加文字注释
+mtext("Data Source: USGS | Day6-Raster | Created by Jiatong Su", 
+      side = 1,  # 文字位于底部
+      line = 4,  # 设置文字离图的距离
+      adj = 0,   # 左对齐 (0: 左对齐, 1: 右对齐, 0.5: 居中)
+      cex = 0.8, # 字体大小
+      col = "darkgray")  # 字体颜色
+
+
+final
+```
+NDVI (Normalized Difference Vegetation Index) measures vegetation health using satellite imagery.
+It ranges from -1 to 1, where:
+  - Values close to 1 indicate healthy, dense vegetation.
+  - Values near 0 represent bare soil.
+  - Negative values indicate water or non-vegetated areas.
+
+  
