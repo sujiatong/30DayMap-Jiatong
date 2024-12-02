@@ -1,0 +1,92 @@
+---
+title: "Untitled"
+output: html_document
+date: "2024-11-29"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Load libraries
+library(ggplot2)
+library(sf)
+library(rnaturalearth)
+library(rnaturalearthdata)
+library(dplyr)
+
+# Load world data
+world <- ne_countries(scale = "medium", returnclass = "sf")
+
+# List of EU countries (current as of 2023)
+eu_countries <- c(
+  "Austria", "Belgium", "Bulgaria", "Croatia", "Cyprus", "Czech Republic", "Denmark",
+  "Estonia", "Finland", "France", "Germany", "Greece", "Hungary", "Ireland", "Italy",
+  "Latvia", "Lithuania", "Luxembourg", "Malta", "Netherlands", "Poland", "Portugal",
+  "Romania", "Slovakia", "Slovenia", "Spain", "Sweden"
+)
+
+# Filter for EU countries
+eu <- world %>% filter(name %in% eu_countries)
+
+world$is_EU <- ifelse(world$name %in% eu_countries, "EU Countries", "Other Countries")
+
+setwd("/Users/jiatong/Desktop/30daysMap/day22-2colours")
+
+```
+
+## R Markdown
+
+
+```{r cars}
+
+# Define Europe bounding box
+europe_bbox <- st_bbox(c(
+  xmin = -15, xmax = 45,  # Longitude limits
+  ymin = 30, ymax = 75    # Latitude limits
+), crs = st_crs(world))
+
+# Crop to Europe for visualization
+world_europe <- st_crop(world, europe_bbox)
+
+# Plot the EU map focused on mainland Europe
+map_final <- ggplot() +
+  # Plot all countries with color coding for EU vs. others
+  geom_sf(data = world, aes(fill = is_EU), color = "white", size = 0.3) +
+  # Customize the color scale for the legend
+  scale_fill_manual(
+    values = c("EU Countries" = "darkblue", "Other Countries" = "gray"),
+    name = "Country Status"
+  ) +
+  # Add labels and styling
+  labs(
+    title = "European Union Map",
+    subtitle = "Countries in the European Union (2023)",
+    caption = "Data Source: Natural Earth (2023)"
+  ) +
+  coord_sf(
+    xlim = c(-12, 38),  # Longitude limits for mainland Europe
+    ylim = c(32, 72),   # Latitude limits for mainland Europe
+    expand = FALSE      # Disable auto-expansion
+  ) +
+  theme_minimal() +
+  theme(
+    axis.title = element_blank(),  # Remove axis titles
+    axis.text = element_blank(),   # Remove axis text (latitude/longitude labels)
+    axis.ticks = element_blank(),  # Remove axis ticks
+    plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
+    plot.subtitle = element_text(size = 12, hjust = 0.5, color = "gray"),
+    plot.caption = element_text(size = 10, hjust = 1, color = "gray"),
+    legend.position = "bottom",  # Move legend to the bottom
+    panel.grid = element_blank(),
+    panel.background = element_rect(fill = "white", color = NA)
+  )
+
+map_final
+```
+
+```{r}
+ggsave("day22_jiatong_2_colours.png", plot = map_final, device = "png", width = 8, height = 6, dpi = 300)
+
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

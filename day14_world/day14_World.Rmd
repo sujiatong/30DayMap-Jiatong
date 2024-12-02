@@ -1,0 +1,100 @@
+---
+title: "World"
+output: html_document
+date: "2024-11-29"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(maps)
+library(ggplot2)
+
+library(sf)
+library(rnaturalearth)
+map_data('world')
+
+setwd("/Users/jiatong/Desktop/30daysMap/day14_world")
+
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+
+# Get world boundaries
+world <- ne_countries(scale = "medium", returnclass = "sf")  # Load medium-scale world map
+world$pop_est <- log10(world$pop_est)  # Log-scale population for better visualization
+```
+
+
+```{r pressure, echo=FALSE}
+# Create the map
+ggplot(data = world) +
+  geom_sf(fill = "lightblue", color = "white") +  # Land fill and border color
+  labs(
+    title = "World Map",
+    subtitle = "Visualizing country boundaries",
+    caption = "Data Source: Natural Earth"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 18, face = "bold", hjust = 0.5),
+    plot.subtitle = element_text(size = 14, hjust = 0.5),
+    plot.caption = element_text(size = 10),
+    panel.grid = element_blank()  # Remove grid for a cleaner look
+  )
+
+```
+
+```{r}
+
+ggplot(data = world) +
+  geom_sf(aes(fill = pop_est), color = "white") +
+  scale_fill_viridis_c(name = "Population\n(Log Scale)") +
+  labs(title = "World Map by Population") +
+  theme_minimal()
+
+```
+
+```{r}
+# Create the map
+final <- ggplot(data = world) +
+  geom_sf(aes(fill = pop_est), color = "white", lwd = 0.3) +  # Adjust border width for clarity
+  scale_fill_viridis_c(
+    name = "Population\n(Log Scale)",
+    option = "viridis",  # Viridis palette
+    guide = guide_colorbar(
+      title.position = "top", 
+      barwidth = 15, barheight = 0.5  # Style adjustments for legend
+    )
+  ) +
+  labs(
+    title = "World Map by Population",
+    subtitle = "Log-scaled population estimates of countries",
+    caption = "30 day map challenge | Day 14 - A world map | Author: Jiatong Su | Data Source: Natural Earth (2023)"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 18, face = "bold", hjust = 0.5, color = "#333333"),
+    plot.subtitle = element_text(size = 12, hjust = 0.5, color = "darkgray"),
+    plot.caption = element_text(size = 9, hjust = 1, color = "gray"),
+    legend.position = "bottom",  # Move legend to the bottom
+    legend.title = element_text(size = 10, face = "bold"),
+    legend.text = element_text(size = 9),
+    panel.grid = element_blank(),  # Remove gridlines for a cleaner look
+    #panel.background = element_rect(fill = "lightblue"),  # Light blue background for oceans
+   # plot.background = element_rect(fill = "white", color = NA),  # White outer background
+    legend.background = element_blank()  # Transparent legend background
+  )
+
+final
+```
+
+```{r}
+ggsave("day14_jiatong_world.png", plot = final, width = 8, height = 6, dpi = 300)
+
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

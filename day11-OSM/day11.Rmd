@@ -1,0 +1,142 @@
+---
+title: "Untitled"
+output: html_document
+date: "2024-11-29"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(hkdatasets)
+library(sf)
+library(dplyr)
+library(mapview)
+library(tmap)
+
+setwd("/Users/jiatong/Desktop/30daysMap/day11-OSM")
+
+
+```
+
+## R Markdown
+
+code chunk like this:
+
+```{r }
+
+hk_casual = hkdatasets::download_data("hk_casualties")
+
+test_data = subset(hk_casual, Vehicle_Class_of_Driver_or_Pass == "Motorcycle" & Year == 2018 )
+
+# Remove row where id equals 3
+test_data <- test_data[test_data$Grid_E != 0, ]
+
+# turn it to sf object
+test_points = test_data %>%
+  # lng/lat value are missing in some records
+  filter(!is.na(Grid_E) & !is.na(Grid_N)) %>%
+  st_as_sf(coords = c("Grid_E", "Grid_N"), crs = 2326, remove = FALSE)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+mapview_test_points = mapview(test_points, cex = 3, alpha = .5, popup = NULL)
+
+mapview_test_points
+```
+
+```{r}
+area_fishnet_grid = st_make_grid(test_points, c(1000, 1000), what = "polygons", square = TRUE)
+
+# To sf and add grid ID
+fishnet_grid_sf = st_sf(area_fishnet_grid) %>%
+  # add grid ID
+  mutate(grid_id = 1:length(lengths(area_fishnet_grid)))
+
+fishnet_grid_sf$n_casual = lengths(st_intersects(fishnet_grid_sf, test_points))
+
+fishnet_count = filter(fishnet_grid_sf, n_casual > 0)
+
+```
+
+```{r}
+tmap_mode("view")
+
+map_fishnet = tm_shape(fishnet_count) +
+  tm_fill(
+    col = "n_casual",
+    palette = "Reds",
+    style = "cont",
+    title = "Number of casualties",
+    id = "grid_id",
+    showNA = FALSE,
+    alpha = 0.5,
+    popup.vars = c(
+      "Number of casualties: " = "n_casual"
+    ),
+    popup.format = list(
+      n_casual = list(format = "f", digits = 0)
+    )
+  ) +
+  tm_borders(col = "grey40", lwd = 0.7) + 
+  tm_basemap("CartoDB.Positron") + 
+   tm_layout(
+    main.title = "Number of Casualties Map",  # 设置主标题
+    main.title.position = c("center", "top"),  # 标题位置：顶部中央
+    main.title.size = 1.5  # 调整标题字体大小
+  )
+
+
+
+map_fishnet
+```
+
+
+
+
+```{r}
+# Create the map
+library(shiny)
+library(tmaptools)
+
+map_honeycomb <- tm_shape(fishnet_count) +
+  tm_fill(
+    col = "n_casual",
+    palette = "Reds",
+    style = "cont",
+    title = "Number of Casualties",
+    id = "grid_id",
+    showNA = FALSE,
+    alpha = 0.6,
+    popup.vars = c(
+      "Number of Casualties: " = "n_casual"
+    ),
+    popup.format = list(
+      n_casual = list(format = "f", digits = 0)
+    )
+  ) +
+  tm_borders(col = "grey40", lwd = 0.7) +
+  # Set basemap
+  tm_basemap("CartoDB.Positron")
+
+leaflet_map <- tmap_leaflet(map_honeycomb)
+
+# Create HTML with title, map, and caption
+html_map <- tags$div(
+  tags$h2("Motorcycle Casualties in Hong Kong, 2018", style = "text-align: center;"),
+  leaflet_map,  # Embed the Leaflet map here
+  tags$p("Created by Jiatong Su | Data Source: Hong Kong Districts Info | #30daysMapChallenge | Day11 - Open Street Map", style = "text-align: center; color: darkgray; font-size: 12px;")
+)
+
+html_map
+```
+
+```{r}
+library(htmltools)  # 用于保存 HTML 文件
+
+save_html(html_map, file = "Casualties_map.html")
+
+```

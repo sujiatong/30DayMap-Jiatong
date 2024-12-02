@@ -1,0 +1,183 @@
+---
+title: "day25-Heat"
+author: Jiatong Su
+output:
+  html_document:
+    theme: simplex
+    toc: yes
+    toc_float: yes
+    progress: hide
+    code_download: yes
+---
+
+```{r setup, message=FALSE, warning=FALSE}
+library(sf)
+library(kableExtra)
+library(gridExtra)
+options(scipen=999)
+options(tigris_class = "sf")
+library(biscale)
+library(dplyr)
+library(ggplot2)
+library(cowplot)
+
+library(grid)
+library(gridExtra)
+library(viridis)
+library(rgeoboundaries)
+
+```
+
+
+```{r}
+root.dir = "https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/DATA/"
+
+source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/functions.r")
+```
+
+
+```{r}
+
+shooting <- st_read("https://services.arcgis.com/fLeGjb7u4uXqeF9q/arcgis/rest/services/SHOOTINGS/FeatureServer/0/query?outFields=*&where=1%3D1&f=geojson")%>% st_transform('ESRI:102286') %>% na.omit()
+group_year <- shooting %>% 
+group_by(YEAR) %>%
+  summarize(count = n()) %>%
+  arrange(-count) 
+
+shooting.23 <-
+  shooting %>%
+   filter(YEAR == 2023) %>%
+    dplyr::select(geometry) %>%
+    na.omit() %>%
+    st_as_sf(coords = c("Long", "Lat"), crs = "EPSG:4326") %>%
+    st_transform('ESRI:102286') %>%
+    distinct()
+
+shooting.23_1 <-
+  shooting %>%
+   filter(YEAR == 2023)
+
+philly <- geoboundaries("United States", adm_lvl = "adm2") %>%
+  filter(shapeName == "Philadelphia") %>% st_transform('ESRI:102286')
+
+usa <- geoboundaries("United States", adm_lvl = "adm2") %>% st_transform('ESRI:102286')
+
+```
+
+## R Markdown
+
+```{r, include=FALSE}
+ggplot() + 
+    geom_sf(data = usa, fill = "grey60", color = NA) +
+
+  geom_sf(data = philly, fill = "grey", color = NA) +
+  stat_density2d(data = data.frame(st_coordinates(shooting.23)), 
+                 aes(X, Y, fill = ..level.., alpha = ..level..),
+                 size = 0.01, bins = 50, geom = 'polygon') +
+  scale_fill_viridis() +
+   coord_sf(
+    xlim = c(-80000.3, - 135503.3),  
+    # Adjust to the appropriate x (easting) limits in meters for ESRI:102286
+    ylim = c(625767.3, 665767.3), 
+    # Adjust to the appropriate y (northing) limits in meters for ESRI:102286
+    expand = FALSE            # Ensure the frame does not auto-expand
+  ) +
+  
+  scale_fill_viridis(option = "plasma", name = "Density Levels") +  # Enhance color palette
+  scale_alpha(range = c(0.00, 0.5), guide = FALSE) +  # Adjust transparency
+  labs(
+    title = "Density of Shooting Victims in Philadelphia, 2023",
+    subtitle = "Hotspots of shooting incidents based on density estimation",
+    caption = "30 day map challenge | Day1 - Point\nAuthor: Jiatong Su\nData Source: California State Geoportal",
+
+    x = NULL, y = NULL
+  ) + 
+  
+  # Annotation for University City
+  annotate(
+    "text", x = -107023.9, y = 635206.3, label = "High shooting vicitms in\nUniversity City",
+    color = "darkred", size = 3.5, hjust = 0
+  ) +
+  annotate(
+    "segment", x = -107023.9, xend = -112723.9, y = 635206.3, yend = 645006.3,
+    color = "darkred", size = 0.8, arrow = arrow(length = unit(0.2, "cm"))
+  ) +
+  theme_minimal() +
+  
+  mapTheme(title_size = 14) + 
+  theme(
+    plot.title = element_text(size = 15, face = "bold", hjust = 0),
+      plot.caption = element_text(size = 8, hjust = 0),
+    plot.subtitle = element_text(size = 12, color = "gray"),
+    panel.grid = element_blank(),
+    legend.position = "none")
+```
+
+
+
+```{r cars}
+
+final_map <- 
+ggplot() +
+  # Base map for Philadelphia
+
+  geom_sf(data = philly, fill = "grey70", color = "white", lwd = 0.4) +
+  #geom_sf(data = usa, fill = "grey50", color = "white", lwd = 0.4) +
+
+
+  # Density estimation layer for shootings
+  stat_density2d(
+    data = data.frame(st_coordinates(shooting.23)),
+    aes(X, Y, fill = ..level.., alpha = ..level..),
+    geom = 'polygon',
+    bins = 50,
+    size = 0.01
+  ) +
+  
+  # Density color and transparency
+  scale_fill_viridis(option = "plasma", name = "Density Levels") +
+  scale_alpha(range = c(0.00, 0.7), guide = FALSE) +
+  
+  # Titles and labels
+  labs(
+    title = "Density of Shooting Victims in Philadelphia, 2023",
+    subtitle = "Hotspots of shooting incidents based on density estimation",
+    caption = "30 Day Map Challenge | Day 25 - Heat Map\nAuthor: Jiatong Su\nData Source: OpenDataPhilly",
+    x = NULL, y = NULL
+  ) +
+  
+  # Annotation for University City
+  annotate(
+    "text", x = -107023.9, y = 635206.3, 
+    label = "High shooting victims in\nUniversity City",
+    color = "red", size = 3.5, hjust = 0
+  ) +
+  annotate(
+    "segment", x = -107023.9, xend = -112723.9, 
+    y = 635206.3, yend = 645006.3,
+    color = "red", size = 0.8, 
+    arrow = arrow(length = unit(0.2, "cm"))
+  ) +
+  
+  # Enhance plot theme
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 16, face = "bold", hjust = 0.5, color = "white"),
+    plot.subtitle = element_text(size = 12, color = "gray70", hjust = 0.5),
+    plot.caption = element_text(size = 9, hjust = 0, color = "gray50"),
+    legend.position = "none",    # Hide the legend
+    panel.grid = element_blank(),  # Remove grid lines for cleaner visualization
+    axis.text = element_blank(),   # Remove axis text
+    axis.ticks = element_blank(),  # Remove axis ticks
+    plot.background = element_rect(fill = "black", color = NA),   # Set plot background to black
+    panel.background = element_rect(fill = "black", color = NA),  # Set panel background to black
+    plot.margin = margin(10, 85, 10, 85)  # Add some margin for spacing
+  ) 
+
+final_map
+```
+
+```{r}
+ggsave("jiatong_day25.png", plot = final_map, width = 8, height = 6, dpi = 300)
+```
+
