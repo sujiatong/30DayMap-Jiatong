@@ -1,0 +1,230 @@
+---
+title: "Untitled"
+output: html_document
+date: "2024-11-03"
+---
+
+```{r setup, include=FALSE}
+library(sf)
+library(ggplot2)
+library(tigris)
+library(sf)
+library(ggimage)  # For using PNG images as symbols
+library(mapview)
+library(tigris)
+library(dplyr)
+library(knitr)  # For kable
+library(kableExtra)
+library(ggspatial)  # For scale bar and north arrow
+library(ggrepel)  # For auto-adjusting text labels
+
+library(viridis)  # For a color palette similar to Reds
+
+setwd("/Users/jiatong/Desktop/30daysMap/day4_hext")
+
+```
+
+[link](https://urbandatapalette.com/post/2021-08-tessellation-sf/) code source from
+
+```{r setup, include=FALSE}
+library(hkdatasets)
+
+hk_accidents = hkdatasets::download_data("hk_accidents")
+
+hk_vehicles = hkdatasets::download_data("hk_vehicles")
+
+hk_boundary <- st_read("https://services3.arcgis.com/6j1KwZfY2fZrfNMR/arcgis/rest/services/Hong_Kong_18_Districts/FeatureServer/0/query?outFields=*&where=1%3D1&f=geojson")
+
+CW_hk <- hk_boundary %>%  filter(CNAME == "中西區")
+test = subset(hk_accidents, District_Council_District == "CW" & Year == 2019) 
+
+# turn it to sf object
+test_points = test %>%
+  # lng/lat value are missing in some records
+  filter(!is.na(Grid_E) & !is.na(Grid_N)) %>%
+  st_as_sf(coords = c("Grid_E", "Grid_N"), crs = 2326, remove = FALSE)
+```
+
+```{r}
+mapview_test_points = mapview(test_points, cex = 3, alpha = .5, popup = NULL)
+
+mapview_test_points
+```
+
+```{r}
+area_fishnet_grid = st_make_grid(test_points, c(150, 150), what = "polygons", square = TRUE)
+
+# To sf and add grid ID
+fishnet_grid_sf = 
+  st_sf(area_fishnet_grid) %>%
+  mutate(grid_id = 1:length(lengths(area_fishnet_grid)))
+```
+
+```{r}
+area_honeycomb_grid = st_make_grid(test_points, c(150, 150), what = "polygons", square = FALSE)
+
+honeycomb_grid_sf = st_sf(area_honeycomb_grid) %>%
+  # add grid ID
+  mutate(grid_id = 1:length(lengths(area_honeycomb_grid)))
+
+# count number of points in each grid
+# https://gis.stackexchange.com/questions/323698/counting-points-in-polygons-with-sf-package-of-r
+honeycomb_grid_sf$n_colli = lengths(st_intersects(honeycomb_grid_sf, test_points))
+
+# remove grid without value of 0 (i.e. no points in side that grid)
+honeycomb_count = filter(honeycomb_grid_sf, n_colli > 0) %>%  st_transform("WGS84")
+```
+
+```{r}
+map_honeycomb = tm_shape(honeycomb_count) +
+  tm_fill(
+    col = "n_colli",
+    palette = "Reds",
+    style = "cont",
+    title = "Number of collisions",
+    id = "grid_id",
+    showNA = FALSE,
+    alpha = 0.6,
+    popup.vars = c(
+      "Number of collisions: " = "n_colli"
+    ),
+    popup.format = list(
+      n_colli = list(format = "f", digits = 0)
+    )
+  ) +
+  tm_borders(col = "grey40", lwd = 0.7) +
+  
+# title: collison in Central west district in Hong Kong
+# subtiltle: data source: Hong Kong Districts Info /n created by Jiatong Su
+# change basemap type
+map_honeycomb
+```
+
+```{r}
+library(tmap)
+
+# Set mode to view for an interactive map with basemap options
+tmap_mode("view")
+
+# Create the map
+map_honeycomb <- tm_shape(honeycomb_count) +
+  tm_fill(
+    col = "n_colli",
+    palette = "Reds",
+    style = "cont",
+    title = "Number of collisions",
+    id = "grid_id",
+    showNA = FALSE,
+    alpha = 0.6,
+    popup.vars = c(
+      "Number of collisions: " = "n_colli"
+    ),
+    popup.format = list(
+      n_colli = list(format = "f", digits = 0)
+    )
+  ) +
+  #tm_borders(col = "grey40", lwd = 0.7) +
+  # Set basemap
+  tm_basemap("CartoDB.Positron")
+
+leaflet_map <- tmap_leaflet(map_honeycomb)
+
+# Create HTML with title, map, and caption
+html_map <- tags$div(
+  tags$h2("Collisions in Central West District in Hong Kong", style = "text-align: center;"),
+  leaflet_map,  # Embed the Leaflet map here
+  tags$p("Data Source: Hong Kong Districts Info | Created by Jiatong Su", style = "text-align: center; color: darkgray; font-size: 12px;")
+)
+
+# Display the HTML in R Markdown or Shiny, or save it as needed
+html_map
+
+```
+
+```{r}
+library(htmltools)
+library(webshot)
+library(htmlwidgets)
+library(ggtext)
+library(glue)
+# Save html_map as an HTML file
+save_html(html_map, file = "temp_map.html")
+
+# Take a screenshot of the HTML file and save as PNG
+webshot("temp_map.html", file = "map_output.png", vwidth = 1000, vheight = 800)
+
+```
+
+
+```{r}
+```
+
+```{r}
+# Plot the map with ggplot2
+hk_cw_collison <- ggplot() +
+  geom_sf(data = CW_hk, fill = "lightyellow", color = NA) +  # Central West Hong Kong layer
+  geom_sf(data = honeycomb_count, aes(fill = n_colli), color = "grey40", size = 0.2) +  # Honeycomb layer with fill based on n_colli
+  scale_fill_viridis(
+    option = "A",  # Reds palette alternative
+    name = "Number of collisions",
+    direction = -1
+  ) +
+  theme_minimal() +
+  labs(
+    title = "Collisions in Central West District in Hong Kong",
+    subtitle = "Data Source: Hong Kong Districts Info | Created by Jiatong Su",
+    fill = "Number of collisions",
+    caption = "30 day map challenge | Day4 - Hexagon\nAuthor: Jiatong Su\nData Source:  Hong Kong Districts Info\n@weitzman_musa"
+  ) +
+ geom_segment(aes(x = 14.16, xend = 22.2, y = 14.16, yend = 22.33), size = 1.2) + 
+annotate("text", x = 14.16, y = 22.33, label = "High collision area",  size = 4, fontface = "bold", hjust = 0) + 
+  #theme_void()+
+ theme(
+    text = element_text(color = "#22211d"),
+    plot.background = element_rect(fill = "#f5f5f2", color = NA),
+    panel.background = element_rect(fill = "#f5f5f2", color = NA),
+    legend.background = element_rect(fill = "#f5f5f2", color = NA),
+    plot.title = element_text(size = 20, hjust = 0.01, color = "#4e4d47"),
+    plot.caption = element_text(hjust = 0))
+
+hk_cw_collison
+```
+```{r}
+st_crs(honeycomb_count)
+
+```
+
+```{r}
+# Plot the map with ggplot2
+hk_cw_collision <- ggplot() +
+  geom_sf(data = CW_hk, fill = "lightyellow", color = NA) +  # Central West Hong Kong layer
+  geom_sf(data = honeycomb_count, aes(fill = n_colli), color = "grey40", size = 0.2) +  # Honeycomb layer
+  scale_fill_viridis(
+    option = "A",  # Viridis palette alternative
+    name = "Number of collisions",
+    direction = -1
+  ) +
+  theme_minimal() +
+  labs(
+    title = "Collisions in Central West District in Hong Kong",
+    subtitle = "Data Source: Hong Kong Districts Info | Created by Jiatong Su",
+    fill = "Number of collisions",
+    caption = "30 day map challenge | Day4 - Hexagon\nAuthor: Jiatong Su\nData Source: Hong Kong Districts Info\n@weitzman_musa"
+  ) +
+  geom_segment(aes(x = 14.16, xend = 22.2, y = 14.16, yend = 22.33), size = 1.2, color = "red") + 
+  annotate("text", x = 20, y = 22.5, label = "High collision area", size = 4, fontface = "bold", hjust = 0) + 
+  theme(
+    text = element_text(color = "#22211d"),
+    plot.background = element_rect(fill = "#f5f5f2", color = NA),
+    panel.background = element_rect(fill = "#f5f5f2", color = NA),
+    legend.background = element_rect(fill = "#f5f5f2", color = NA),
+    plot.title = element_text(size = 20, hjust = 0),  # Left-align title
+    plot.caption = element_text(hjust = 0)  # Left-align caption
+  )
+
+hk_cw_collision
+```
+
+```{r}
+```
+
