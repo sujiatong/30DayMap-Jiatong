@@ -58,6 +58,7 @@ This map uses a gradient from pale to green to show vegetation density across Ph
 ## D11 - Open street map
 
 This map visualizes motorcycle casualties in Hong Kong using an OpenStreetMap base layer. A grid overlay represents the distribution and density of casualties, providing a clear spatial understanding of the data.
+Check out [interactive map](https://sujiatong.github.io/30DayMap-Jiatong/day11-OSM/Casualties_map.html) for in-depth look at specific area.
 
 <img src="day11-OSM/day11_Jiatong.png?raw=true" width="400"/>
 
