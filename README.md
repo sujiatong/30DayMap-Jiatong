@@ -1,4 +1,4 @@
-# Maps
+# 30-Day Map Challenge (10 maps completed)
 
 ## Table of Contents
 
