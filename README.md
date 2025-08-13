@@ -85,8 +85,7 @@ This map visualize the country population distribution around the world by using
 ## D16 - Choropleth
 This choropleth map illustrates the relationship between income and the percentage of the white population. Annotation text highlights significant patterns, while an appropriate color palatte ensures clarity and effective visual representation.
 
-<img src="day16/jiatong_day16.png
-?raw=true" width="400"/>
+<img src="day16/jiatong_day16.png?raw=true" width="400"/>
 
 <a href="https://sujiatong.github.io/30DayMap-Jiatong/day16/day16.html">💻 Source Code</a>
 
