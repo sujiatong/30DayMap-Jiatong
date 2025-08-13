@@ -77,8 +77,7 @@ This map highlights how cartography and data visualization can bring history to 
 ## D14 - World
 This map visualize the country population distribution around the world by using a gradient color scale. The varying colors enhance readability and allow viewers to quickly understand population scales across different countries.
 
-<img src="day14_world/day14_jiatong_world.png
-?raw=true" width="400"/>
+<img src="day14_world/day14_jiatong_world.png?raw=true" width="400"/>
 
 <a href="https://github.com/sujiatong/30DayMap-Jiatong/blob/main/day14_world/day14_World.Rmd">💻 Source Code</a>
 
@@ -93,6 +92,7 @@ This choropleth map illustrates the relationship between income and the percenta
 This two-color map highlights European Union countries in blue, effectively emphasizing and clearly distinguishing them from non-EU countries.
 
 <img src="day22-2colours/day22_jiatong_2_colours.png?raw=true" width="500"/>
+
 <a href="https://github.com/sujiatong/30DayMap-Jiatong/blob/main/day22-2colours/day22_2colours.Rmd">💻 Source Code</a>
 
 
